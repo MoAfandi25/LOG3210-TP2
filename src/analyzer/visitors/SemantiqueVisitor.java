@@ -262,7 +262,13 @@ public class SemantiqueVisitor implements ParserVisitor {
     @Override
     public Object visit(ASTIdentifier node, Object data) {
         if (node.jjtGetParent() instanceof ASTGenValue) {
-            // TODO
+            String varName = node.getValue();
+
+            if (!SymbolTable.containsKey(varName)) {
+                throw new SemantiqueError(
+                        String.format("Variable %s was not declared", varName)
+                );
+            }
         }
 
         return null;
