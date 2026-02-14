@@ -27,6 +27,8 @@ public class SemantiqueVisitor implements ParserVisitor {
     public int IF = 0;
     public int OP = 0;
 
+    private Set<String> declaredVars = new HashSet<>();
+
     public SemantiqueVisitor(PrintWriter writer) {
         m_writer = writer;
     }
@@ -80,7 +82,10 @@ public class SemantiqueVisitor implements ParserVisitor {
     @Override
     public Object visit(ASTProgram node, Object data) {
         node.childrenAccept(this, SymbolTable);
-        m_writer.print(String.format("{VAR:%d, WHILE:%d, IF:%d, OP:%d}", this.VAR, this.WHILE, this.IF, this.OP));
+        m_writer.print(String.format(
+                "{VAR:%d, WHILE:%d, IF:%d, OP:%d}",
+                VAR, WHILE, IF, OP
+        ));
         return null;
     }
 
@@ -91,7 +96,10 @@ public class SemantiqueVisitor implements ParserVisitor {
     public Object visit(ASTDeclareStmt node, Object data) {
         String varName = ((ASTIdentifier) node.jjtGetChild(0)).getValue();
 
-        // TODO
+        if (!declaredVars.contains(varName)) {
+            declaredVars.add(varName);
+            VAR++;
+        }
         node.childrenAccept(this, data);
 
         return null;
@@ -99,7 +107,6 @@ public class SemantiqueVisitor implements ParserVisitor {
 
     @Override
     public Object visit(ASTAssignStmt node, Object data) {
-        // TODO
         node.childrenAccept(this, data);
         return null;
     }
@@ -109,7 +116,7 @@ public class SemantiqueVisitor implements ParserVisitor {
     // Elle sont aussi les seules structure avec des block qui devront garder leur déclaration locale.
     @Override
     public Object visit(ASTIfStmt node, Object data) {
-        // TODO
+        IF++;
         node.childrenAccept(this, data);
         return null;
     }
@@ -137,14 +144,14 @@ public class SemantiqueVisitor implements ParserVisitor {
 
     @Override
     public Object visit(ASTTernary node, Object data) {
-        // TODO
+        IF++;
         node.childrenAccept(this, data);
         return null;
     }
 
     @Override
     public Object visit(ASTWhileStmt node, Object data) {
-        // TODO
+        WHILE++;
         node.childrenAccept(this, data);
         return null;
     }
@@ -180,7 +187,9 @@ public class SemantiqueVisitor implements ParserVisitor {
             - Les opérateurs == et != peuvent être utilisé pour les nombres et les booléens, mais il faut que le type
             soit le même des deux côtés de l'égalité/l'inégalité.
         */
-        // TODO
+        if (node.getValue() != null) {
+            OP++;
+        }
         node.childrenAccept(this, data);
         return null;
     }
@@ -195,21 +204,27 @@ public class SemantiqueVisitor implements ParserVisitor {
      */
     @Override
     public Object visit(ASTLogExpr node, Object data) {
-        // TODO
+        if (node.jjtGetNumChildren() > 1) {
+            OP += node.jjtGetNumChildren() - 1;
+        }
         node.childrenAccept(this, data);
         return null;
     }
 
     @Override
     public Object visit(ASTAddExpr node, Object data) {
-        // TODO
+        if (node.jjtGetNumChildren() > 1) {
+            OP += node.jjtGetNumChildren() - 1;
+        }
         node.childrenAccept(this, data);
         return null;
     }
 
     @Override
     public Object visit(ASTMultExpr node, Object data) {
-        // TODO
+        if (node.jjtGetNumChildren() > 1) {
+            OP += node.jjtGetNumChildren() - 1;
+        }
         node.childrenAccept(this, data);
         return null;
     }
@@ -220,14 +235,14 @@ public class SemantiqueVisitor implements ParserVisitor {
     */
     @Override
     public Object visit(ASTNotExpr node, Object data) {
-        // TODO
+        OP++;
         node.childrenAccept(this, data);
         return null;
     }
 
     @Override
     public Object visit(ASTNegExpr node, Object data) {
-        // TODO
+        OP++;
         node.childrenAccept(this, data);
         return null;
     }
