@@ -27,8 +27,6 @@ public class SemantiqueVisitor implements ParserVisitor {
     public int IF = 0;
     public int OP = 0;
 
-    private Set<String> declaredVars = new HashSet<>();
-
     public SemantiqueVisitor(PrintWriter writer) {
         m_writer = writer;
     }
@@ -96,10 +94,14 @@ public class SemantiqueVisitor implements ParserVisitor {
     public Object visit(ASTDeclareStmt node, Object data) {
         String varName = ((ASTIdentifier) node.jjtGetChild(0)).getValue();
 
-        if (!declaredVars.contains(varName)) {
-            declaredVars.add(varName);
-            VAR++;
+        if (SymbolTable.containsKey(varName)) {
+            throw new SemantiqueError(
+                    String.format("Identifier %s has multiple declarations", varName)
+            );
         }
+        SymbolTable.put(varName, VarType.INT);
+
+        VAR++;
         node.childrenAccept(this, data);
 
         return null;
