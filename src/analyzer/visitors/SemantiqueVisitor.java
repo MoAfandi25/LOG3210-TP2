@@ -261,7 +261,9 @@ public class SemantiqueVisitor implements ParserVisitor {
 
     @Override
     public Object visit(ASTIdentifier node, Object data) {
-        if (node.jjtGetParent() instanceof ASTGenValue) {
+        Node parent = node.jjtGetParent();
+
+        if (!(parent instanceof ASTDeclareStmt)) {
             String varName = node.getValue();
 
             if (!SymbolTable.containsKey(varName)) {
@@ -270,7 +272,6 @@ public class SemantiqueVisitor implements ParserVisitor {
                 );
             }
         }
-
         return null;
     }
 
