@@ -94,12 +94,15 @@ public class SemantiqueVisitor implements ParserVisitor {
     public Object visit(ASTDeclareStmt node, Object data) {
         String varName = ((ASTIdentifier) node.jjtGetChild(0)).getValue();
 
-        if (SymbolTable.containsKey(varName)) {
+        HashMap<String, VarType> table =
+                (HashMap<String, VarType>) data;
+
+        if (table.containsKey(varName)) {
             throw new SemantiqueError(
                     String.format("Identifier %s has multiple declarations", varName)
             );
         }
-        SymbolTable.put(varName, VarType.INT);
+        table.put(varName, VarType.INT);
 
         VAR++;
         node.childrenAccept(this, data);
@@ -132,15 +135,18 @@ public class SemantiqueVisitor implements ParserVisitor {
 
     @Override
     public Object visit(ASTIfBlock node, Object data) {
-        // TODO
-        node.childrenAccept(this, data);
+        HashMap<String, VarType> localTable =
+                new HashMap<>((HashMap<String, VarType>) data);
+        node.childrenAccept(this, localTable);
         return null;
     }
 
     @Override
     public Object visit(ASTElseBlock node, Object data) {
-        // TODO
-        node.childrenAccept(this, data);
+        HashMap<String, VarType> localTable =
+                new HashMap<>((HashMap<String, VarType>) data);
+
+        node.childrenAccept(this, localTable);
         return null;
     }
 
@@ -167,15 +173,19 @@ public class SemantiqueVisitor implements ParserVisitor {
 
     @Override
     public Object visit(ASTWhileBlock node, Object data) {
-        // TODO
-        node.childrenAccept(this, data);
+        HashMap<String, VarType> localTable =
+                new HashMap<>((HashMap<String, VarType>) data);
+
+        node.childrenAccept(this, localTable);
         return null;
     }
 
     @Override
     public Object visit(ASTDoWhileStmt node, Object data) {
-        // TODO
-        node.childrenAccept(this, data);
+        HashMap<String, VarType> localTable =
+                new HashMap<>((HashMap<String, VarType>) data);
+
+        node.childrenAccept(this, localTable);
         return null;
     }
 
@@ -261,15 +271,14 @@ public class SemantiqueVisitor implements ParserVisitor {
 
     @Override
     public Object visit(ASTIdentifier node, Object data) {
-        Node parent = node.jjtGetParent();
-
-        if (!(parent instanceof ASTDeclareStmt)) {
+        if (!(node.jjtGetParent() instanceof ASTDeclareStmt)) {
             String varName = node.getValue();
 
-            if (!SymbolTable.containsKey(varName)) {
-                throw new SemantiqueError(
-                        String.format("Variable %s was not declared", varName)
-                );
+            HashMap<String, VarType> table =
+                    (HashMap<String, VarType>) data;
+
+            if (!table.containsKey(varName)) {
+                throw new SemantiqueError(String.format("Variable %s was not declared", varName));
             }
         }
         return null;
