@@ -80,39 +80,67 @@ public class SemantiqueVisitor implements ParserVisitor {
     @Override
     public Object visit(ASTProgram node, Object data) {
         node.childrenAccept(this, SymbolTable);
-        m_writer.print(String.format(
-                "{VAR:%d, WHILE:%d, IF:%d, OP:%d}",
-                VAR, WHILE, IF, OP
-        ));
+        m_writer.print(String.format("{VAR:%d, WHILE:%d, IF:%d, OP:%d}", this.VAR, this.WHILE, this.IF, this.OP));
         return null;
     }
 
     // Déclaration et assignation:
-    // On doit vérifier que le type de la variable est compatible avec celui de l'expression.
+    // Le type déclaré (int/bool/float/list) est dans node.getValue() sur ASTDeclareStmt.
+    // On doit vérifier que le type de l'expression à droite soit le même que le type déclaré.
+
+    private static VarType declaredTypeFromString(String typeName) {
+        if (typeName == null) return VarType.UNDEFINED;
+        switch (typeName) {
+            case "int": return VarType.INT;
+            case "bool": return VarType.BOOL;
+            case "float": return VarType.REAL;
+            case "list": return VarType.LIST;
+            default: return VarType.UNDEFINED;
+        }
+    }
 
     @Override
     public Object visit(ASTDeclareStmt node, Object data) {
         String varName = ((ASTIdentifier) node.jjtGetChild(0)).getValue();
-
-        HashMap<String, VarType> table =
-                (HashMap<String, VarType>) data;
+        HashMap<String, VarType> table = (HashMap<String, VarType>) data;
 
         if (table.containsKey(varName)) {
             throw new SemantiqueError(
                     String.format("Identifier %s has multiple declarations", varName)
             );
         }
-        table.put(varName, VarType.INT);
-
+        VarType declaredType = declaredTypeFromString(node.getValue());
+        table.put(varName, declaredType);
         VAR++;
-        node.childrenAccept(this, data);
-
+        node.jjtGetChild(0).jjtAccept(this, data);
+        if (node.jjtGetNumChildren() > 1) {
+            VarType initType = (VarType) node.jjtGetChild(1).jjtAccept(this, data);
+            if (initType != VarType.UNDEFINED && initType != declaredType) {
+                throw new SemantiqueError(
+                        String.format("Invalid type in assignation of Identifier %s", varName));
+            }
+        }
         return null;
     }
 
     @Override
     public Object visit(ASTAssignStmt node, Object data) {
-        node.childrenAccept(this, data);
+        HashMap<String, VarType> table = (HashMap<String, VarType>) data;
+        String varName = ((ASTIdentifier) node.jjtGetChild(0)).getValue();
+
+        if (!table.containsKey(varName)) {
+            throw new SemantiqueError(
+                    String.format("Variable %s was not declared", varName));
+        }
+        VarType varType = table.get(varName);
+        VarType exprType = (VarType) node.jjtGetChild(1).jjtAccept(this, data);
+
+        if (exprType != VarType.UNDEFINED && varType != exprType) {
+            throw new SemantiqueError(
+                    String.format(
+                            "Invalid type in assignation of Identifier %s",
+                            varName));
+        }
         return null;
     }
 
@@ -128,24 +156,23 @@ public class SemantiqueVisitor implements ParserVisitor {
 
     @Override
     public Object visit(ASTIfCond node, Object data) {
-        // TODO
-        node.childrenAccept(this, data);
+        VarType cond = (VarType) node.jjtGetChild(0).jjtAccept(this, data);
+        if (cond != VarType.BOOL) {
+            throw new SemantiqueError("Invalid type in condition");
+        }
         return null;
     }
 
     @Override
     public Object visit(ASTIfBlock node, Object data) {
-        HashMap<String, VarType> localTable =
-                new HashMap<>((HashMap<String, VarType>) data);
+        HashMap<String, VarType> localTable = new HashMap<>((HashMap<String, VarType>) data);
         node.childrenAccept(this, localTable);
         return null;
     }
 
     @Override
     public Object visit(ASTElseBlock node, Object data) {
-        HashMap<String, VarType> localTable =
-                new HashMap<>((HashMap<String, VarType>) data);
-
+        HashMap<String, VarType> localTable = new HashMap<>((HashMap<String, VarType>) data);
         node.childrenAccept(this, localTable);
         return null;
     }
@@ -153,8 +180,16 @@ public class SemantiqueVisitor implements ParserVisitor {
     @Override
     public Object visit(ASTTernary node, Object data) {
         IF++;
-        node.childrenAccept(this, data);
-        return null;
+        VarType cond = (VarType) node.jjtGetChild(0).jjtAccept(this, data);
+        if (cond != VarType.BOOL) {
+            throw new SemantiqueError("Invalid type in condition");
+        }
+        VarType t1 = (VarType) node.jjtGetChild(1).jjtAccept(this, data);
+        VarType t2 = (VarType) node.jjtGetChild(2).jjtAccept(this, data);
+        if (t1 != VarType.UNDEFINED && t2 != VarType.UNDEFINED && t1 != t2) {
+            throw new SemantiqueError("Invalid type in expression");
+        }
+        return (t1 != VarType.UNDEFINED) ? t1 : t2;
     }
 
     @Override
@@ -166,25 +201,23 @@ public class SemantiqueVisitor implements ParserVisitor {
 
     @Override
     public Object visit(ASTWhileCond node, Object data) {
-        // TODO
-        node.childrenAccept(this, data);
+        VarType cond = (VarType) node.jjtGetChild(0).jjtAccept(this, data);
+        if (cond != VarType.BOOL) {
+            throw new SemantiqueError("Invalid type in condition");
+        }
         return null;
     }
 
     @Override
     public Object visit(ASTWhileBlock node, Object data) {
-        HashMap<String, VarType> localTable =
-                new HashMap<>((HashMap<String, VarType>) data);
-
+        HashMap<String, VarType> localTable = new HashMap<>((HashMap<String, VarType>) data);
         node.childrenAccept(this, localTable);
         return null;
     }
 
     @Override
     public Object visit(ASTDoWhileStmt node, Object data) {
-        HashMap<String, VarType> localTable =
-                new HashMap<>((HashMap<String, VarType>) data);
-
+        HashMap<String, VarType> localTable = new HashMap<>((HashMap<String, VarType>) data);
         node.childrenAccept(this, localTable);
         return null;
     }
@@ -199,11 +232,29 @@ public class SemantiqueVisitor implements ParserVisitor {
             - Les opérateurs == et != peuvent être utilisé pour les nombres et les booléens, mais il faut que le type
             soit le même des deux côtés de l'égalité/l'inégalité.
         */
-        if (node.getValue() != null) {
+        if (node.jjtGetNumChildren() == 1) {
+            return node.jjtGetChild(0).jjtAccept(this, data);
+        }
+        VarType left = (VarType) node.jjtGetChild(0).jjtAccept(this, data);
+        VarType right = (VarType) node.jjtGetChild(1).jjtAccept(this, data);
+        String op = node.getValue();
+        if (left == VarType.UNDEFINED || right == VarType.UNDEFINED) {
+            throw new SemantiqueError("Invalid type in expression");
+        }
+        if (op != null) {
             OP++;
         }
-        node.childrenAccept(this, data);
-        return null;
+        if (op != null && (op.equals("<") || op.equals(">") || op.equals("<=") || op.equals(">="))) {
+            if (!((left == VarType.INT || left == VarType.REAL) && (right == VarType.INT || right == VarType.REAL))) {
+                throw new SemantiqueError("Invalid type in expression");
+            }
+        }
+        if (op != null && (op.equals("==") || op.equals("!="))) {
+            if (left != right) {
+                throw new SemantiqueError("Invalid type in expression");
+            }
+        }
+        return VarType.BOOL;
     }
 
     /*
@@ -219,8 +270,13 @@ public class SemantiqueVisitor implements ParserVisitor {
         if (node.jjtGetNumChildren() > 1) {
             OP += node.jjtGetNumChildren() - 1;
         }
-        node.childrenAccept(this, data);
-        return null;
+        for (int i = 0; i < node.jjtGetNumChildren(); i++) {
+            VarType t = (VarType) node.jjtGetChild(i).jjtAccept(this, data);
+            if (t != VarType.BOOL) {
+                throw new SemantiqueError("Invalid type in expression");
+            }
+        }
+        return VarType.BOOL;
     }
 
     @Override
@@ -228,8 +284,17 @@ public class SemantiqueVisitor implements ParserVisitor {
         if (node.jjtGetNumChildren() > 1) {
             OP += node.jjtGetNumChildren() - 1;
         }
-        node.childrenAccept(this, data);
-        return null;
+        VarType first = (VarType) node.jjtGetChild(0).jjtAccept(this, data);
+        if (first != VarType.UNDEFINED && first != VarType.INT && first != VarType.REAL) {
+            throw new SemantiqueError("Invalid type in expression");
+        }
+        for (int i = 1; i < node.jjtGetNumChildren(); i++) {
+            VarType t = (VarType) node.jjtGetChild(i).jjtAccept(this, data);
+            if (t != VarType.UNDEFINED && first != VarType.UNDEFINED && t != first) {
+                throw new SemantiqueError("Invalid type in expression");
+            }
+        }
+        return first;
     }
 
     @Override
@@ -237,8 +302,17 @@ public class SemantiqueVisitor implements ParserVisitor {
         if (node.jjtGetNumChildren() > 1) {
             OP += node.jjtGetNumChildren() - 1;
         }
-        node.childrenAccept(this, data);
-        return null;
+        VarType first = (VarType) node.jjtGetChild(0).jjtAccept(this, data);
+        if (first != VarType.UNDEFINED && first != VarType.INT && first != VarType.REAL) {
+            throw new SemantiqueError("Invalid type in expression");
+        }
+        for (int i = 1; i < node.jjtGetNumChildren(); i++) {
+            VarType t = (VarType) node.jjtGetChild(i).jjtAccept(this, data);
+            if (t != VarType.UNDEFINED && first != VarType.UNDEFINED && t != first) {
+                throw new SemantiqueError("Invalid type in expression");
+            }
+        }
+        return first;
     }
 
     /*
@@ -248,72 +322,77 @@ public class SemantiqueVisitor implements ParserVisitor {
     @Override
     public Object visit(ASTNotExpr node, Object data) {
         OP++;
-        node.childrenAccept(this, data);
-        return null;
+        VarType t = (VarType) node.jjtGetChild(0).jjtAccept(this, data);
+        if (t != VarType.UNDEFINED && t != VarType.BOOL) {
+            throw new SemantiqueError("Invalid type in expression");
+        }
+        return VarType.BOOL;
     }
 
     @Override
     public Object visit(ASTNegExpr node, Object data) {
         OP++;
-        node.childrenAccept(this, data);
-        return null;
+        VarType t = (VarType) node.jjtGetChild(0).jjtAccept(this, data);
+        if (t != VarType.UNDEFINED && t != VarType.INT && t != VarType.REAL) {
+            throw new SemantiqueError("Invalid type in expression");
+        }
+        return t;
     }
 
-    /*
-        Les noeud ASTIdentifier ayant comme parent "GenValue" doivent vérifier leur type.
-        On peut envoyer une information à un enfant avec le 2e paramètre de jjtAccept ou childrenAccept.
-     */
     @Override
     public Object visit(ASTGenValue node, Object data) {
-        node.childrenAccept(this, data);
-        return null;
+        return node.jjtGetChild(0).jjtAccept(this, data);
     }
 
     @Override
     public Object visit(ASTIdentifier node, Object data) {
         if (!(node.jjtGetParent() instanceof ASTDeclareStmt)) {
             String varName = node.getValue();
-
-            HashMap<String, VarType> table =
-                    (HashMap<String, VarType>) data;
-
+            HashMap<String, VarType> table = (HashMap<String, VarType>) data;
             if (!table.containsKey(varName)) {
                 throw new SemantiqueError(String.format("Variable %s was not declared", varName));
             }
         }
-        return null;
+        VarType t = ((HashMap<String, VarType>) data).get(node.getValue());
+        return t != null ? t : VarType.UNDEFINED;
     }
 
     @Override
     public Object visit(ASTBoolValue node, Object data) {
-        // TODO
-        return null;
+        return VarType.BOOL;
     }
 
     @Override
     public Object visit(ASTIntValue node, Object data) {
-        // TODO
-        return null;
+        return VarType.INT;
     }
 
     @Override
     public Object visit(ASTRealValue node, Object data) {
-        // TODO
-        return null;
+        return VarType.REAL;
     }
 
     @Override
     public Object visit(ASTListExpr node, Object data) {
-        // TODO
-        node.childrenAccept(this, data);
-        return null;
+        if (node.jjtGetNumChildren() == 0) {
+            return VarType.LIST;
+        }
+        VarType first = (VarType) node.jjtGetChild(0).jjtAccept(this, data);
+        for (int i = 1; i < node.jjtGetNumChildren(); i++) {
+            VarType t = (VarType) node.jjtGetChild(i).jjtAccept(this, data);
+            if (t != VarType.UNDEFINED && first != VarType.UNDEFINED && t != first) {
+                throw new SemantiqueError("Invalid type in expression");
+            }
+        }
+        return VarType.LIST;
     }
 
-
-    //des outils pour vous simplifier la vie et vous enligner dans le travail
     public enum VarType {
-        INT
-        // À compléter
+        UNDEFINED,
+        INT,
+        REAL,
+        BOOL,
+        LIST
     }
 
 
