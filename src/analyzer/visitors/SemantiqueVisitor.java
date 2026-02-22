@@ -377,7 +377,7 @@ public class SemantiqueVisitor implements ParserVisitor {
     }
 
     @Override
-    public Object visit(ASTListExpr node, Object data) {            // Liste vide : type LIST
+    public Object visit(ASTListExpr node, Object data) {
         // Liste vide : type LIST
         if (node.jjtGetNumChildren() == 0) {
             return VarType.LIST;
